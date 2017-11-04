@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "tesh.h"
 
@@ -553,11 +554,19 @@ int execCmd(Program *prg, pid_t* pid) {
     if (pid==NULL ? !(p=fork()) : !(*pid=fork()) ) {
         if (cmd->stdin != NULL) {
             int file = open(cmd->stdin, O_RDONLY);
+			if(file==-1){
+				printf("Open fail : %s\n", strerror(errno));
+			}
             dup2(file, 0);
             close(file);
         }
         if (cmd->stdout != NULL) {
-            int file = open(cmd->stdout, cmd->stdout_append ? O_APPEND : O_WRONLY);
+            int file = open(cmd->stdout, (cmd->stdout_append ? O_APPEND | O_WRONLY : O_WRONLY | O_TRUNC) | O_CREAT, 0644);
+			
+			if(file==-1){
+				printf("Open fail : %s\n", strerror(errno));
+			}
+			
             dup2(file, 1);
             close(file);
         }
