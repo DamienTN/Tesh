@@ -23,8 +23,8 @@ void tesh_debug_print_cmds(Command *cmds) {
             printf("\n");
         }
 
-        if(current_cmd->piped) {
-            printf("Piped\n");
+        if(current_cmd->link) {
+            printf("%d\n", current_cmd->link);
         }
 
         if(current_cmd->background) {
@@ -69,7 +69,7 @@ int iskeychar(int c) {
             c == '<' ||
             c == '>' ||
             c == '|' ||
-            c == '#' ||
+            c == '#' || // TODO : commentaires
             c == ';' ||
             c == '&'
     );
@@ -198,11 +198,18 @@ Program* tesh_build_program(char *line) {
         }
 
         if(strcmp(token, "|") == 0) {
-            program->last->piped = 1;
+            program->last->link = CMD_LINK_PIPE;
             tesh_add_command(program, tesh_create_cmd());
         }
         else if(strcmp(token, ";") == 0) {
+            program->last->link = CMD_LINK_SEMICOLON;
             tesh_add_command(program, tesh_create_cmd());
+        }
+        else if(strcmp(token, "&&") == 0) {
+            program->last->link = CMD_LINK_AND;
+        }
+        else if(strcmp(token, "||") == 0) {
+            program->last->link = CMD_LINK_OR;
         }
         else if(strcmp(token, "<") == 0) {
             char   *redirect;
@@ -251,6 +258,7 @@ Program* tesh_build_program(char *line) {
 
         if(parsing_error) {
             free_cmds(&program->root);
+            program->last = NULL;
         }
 
         free(token);
@@ -288,11 +296,18 @@ char* tesh_read_token(char *line) {
                     case '>':
                         i++;
                         break;
+                    case '&':
+                        i++;
+                        break;
                     default:
                         break;
                 }
             case '>':
                 if(line[i + 1] == '>') {
+                    i++;
+                }
+            case '|':
+                if(line[i + 1] == '|') {
                     i++;
                 }
             default:
@@ -348,7 +363,7 @@ Command* tesh_create_cmd() {
     tmp_cmd->stderr = NULL;
     tmp_cmd->next = NULL;
     tmp_cmd->args = NULL;
-    tmp_cmd->piped = 0;
+    tmp_cmd->link = CMD_LINK_NONE;
     tmp_cmd->args_count = 0;
     tmp_cmd->stdout_append = 0;
     tmp_cmd->args_size = 0;

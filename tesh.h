@@ -1,8 +1,14 @@
 #ifndef RS2017_VANTOUROUT_DEBENATH_TESH_H
 #define RS2017_VANTOUROUT_DEBENATH_TESH_H
 
-#define INIT_NB_ARGS 10
-#define EXTENDS_NB_ARGS 5
+#define INIT_NB_ARGS        10
+#define EXTENDS_NB_ARGS     5
+
+#define CMD_LINK_NONE       0
+#define CMD_LINK_PIPE       1
+#define CMD_LINK_OR         2
+#define CMD_LINK_AND        3
+#define CMD_LINK_SEMICOLON  4
 
 typedef struct Program {
     struct Command *root,
@@ -10,13 +16,13 @@ typedef struct Program {
 } Program;
 
 typedef struct Command {
-    char       *stdin,
+    char    *stdin,
             *stdout,
             *stderr,
-            **args;
+            **args,
+            link;
 
-    int         piped,
-            background,
+    int     background,
             stdout_append,
             args_count,
             args_size;
