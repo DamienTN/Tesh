@@ -94,13 +94,19 @@ int tesh(int argc, char **argv) {
         line = tesh_readline();
         program = tesh_build_program(line);
 
-        if(program->last && program->last->args && strcmp(program->last->args[0], "quit") == 0) {
-            quit = 1;
+        if(program) {
+            if (program->last && program->last->args && strcmp(program->last->args[0], "quit") == 0) {
+                quit = 1;
+            }
+
+            if(program->root) {
+                tesh_debug_print_cmds(program->root);
+            }
+
+            free_program(&program);
         }
 
-        tesh_debug_print_cmds(program->root);
         free(line);
-        free_program(&program);
     }
 
     return EXIT_SUCCESS;
@@ -151,6 +157,25 @@ void tesh_add_command(Program *program, Command* cmd) {
     program->last = cmd;
 }
 
+/**
+ * Ajoute un argument 'arg' dans le tableau 'args' de
+ * la commande 'cmd'. Le tableau se termine toujours par une
+ * case avec la valeur '0' (comme argv de main)
+ *
+ * Si la commande ne contient aucun argument, initialise
+ * le tableau 'args' avec une taille 'INIT_NB_ARGS'.
+ * Le tableau est créé avec 'malloc', il doit être *free*
+ *
+ * Si le tableau 'args' est plein après l'insertion de 'arg'
+ * il est aggrandi avec 'realloc' de 'EXTENDS_NB_ARGS' de sorte
+ * à toujours avoir '0' comme dernière valeur.
+ *
+ * 'memset' est utilisé pour initialiser toutes les cases du
+ * tableau avec la valeur '0', après 'malloc' et 'realloc'
+ *
+ * @param cmd
+ * @param arg
+ */
 void tesh_add_arg(Command *cmd, char *arg) {
     if(!cmd->args) {
         cmd->args_size = INIT_NB_ARGS;
@@ -184,6 +209,21 @@ void tesh_cmd_redirect(char **r, char *str) {
     strcpy(*r, str);
 }
 
+/**
+ *  Construit une liste chainée des commandes présentent dans
+ * 'line'.
+ *
+ * Les commandes sont ajoutées dans l'ordre qu'elles sont lues.
+ *
+ * La valeur retournée est créée avec un 'malloc' elle doit
+ * être *free*
+ *
+ * Si erreur pendant la constuction de la liste chainée, la
+ * fonction retourne 'NULL'
+ *
+ * @param line
+ * @return
+ */
 Program* tesh_build_program(char *line) {
     Program    *program;
     char       *token;
@@ -257,8 +297,7 @@ Program* tesh_build_program(char *line) {
         }
 
         if(parsing_error) {
-            free_cmds(&program->root);
-            program->last = NULL;
+            free_program(&program);
         }
 
         free(token);
@@ -267,6 +306,36 @@ Program* tesh_build_program(char *line) {
     return program;
 }
 
+/**
+ * Lit et retourne le prochain token de 'line'.
+ *
+ * *'line' est modifié en enlevant le token lu*
+ *
+ * Retourne NULL si :
+ *  - le token à une taille de 0
+ *  - 'line' est de taille 0
+ *
+ * Les token sont séparés par :
+ *  - si le caractère testé par isspace() (<cctype.h>) retourne une valeur différente de 0 :
+ *       + ' ', '\t', '\n', '\v', '\f' et '\r'
+ *       + https://linux.die.net/man/3/isspace
+ *  - si le caractère fait partie des caractères spéciaux :
+ *       + '#' : commentaire
+ *       + '&' :
+ *          * exécuté une commande en background '&'
+ *          * ET logique "&&"
+ *          * redirection de stdout et stderr "&>"
+ *       + '|' :
+ *          * pipe plusieurs commandes
+ *          * OU logique "||"
+ *       + '<' : redirection de stdin '<'
+ *       + '>' :
+ *          * redirection de stdout '>'
+ *          * redirection de stdout en append ">>"
+ *       + ';' : plusieurs commandes en une ligne sans condition d'exécution ';'
+ * @param line
+ * @return
+ */
 char* tesh_read_token(char *line) {
     if(strlen(line) == 0) {
         return NULL;
@@ -283,6 +352,10 @@ char* tesh_read_token(char *line) {
     quote = 0;
     i = 0;
 
+    /*
+     * Passe tout les "espaces" inutiles
+     * TODO : Tester la range des charactères, ASCII ? UTF ?
+     */
     while(isspace(line[i]) || line[i] < 0) {
         i++;
     }
@@ -293,26 +366,39 @@ char* tesh_read_token(char *line) {
         switch(line[i]) {
             case '&':
                 switch(line[i + 1]) {
+                    // Token &> pour rediriger stdout et sterr
                     case '>':
                         i++;
                         break;
+                        // Token && (cmd1 && cmd2)
                     case '&':
                         i++;
                         break;
+                        // Token & pour les exécutions en arrière plan
                     default:
                         break;
                 }
+                break;
+                // Token > pour rediriger stdout
             case '>':
+                // Token >> pour rediriger sur stdout en append
                 if(line[i + 1] == '>') {
                     i++;
                 }
+                break;
+                // Token | pour pipe plus commandes (cmd1 | cmd2)
             case '|':
+                // Token || (cmd1 || cmd2)
                 if(line[i + 1] == '|') {
                     i++;
                 }
+                break;
+                // Autre tokens spéciaux d'un caractère
             default:
-                i++;
+                break;
         }
+
+        i++;
     }
     else {
         while (line[i] != 0 && (quote || !isseparator(line[i]) || (i > 0 && isseparator(line[i]) && line[i - 1] == '\\'))) {
@@ -336,9 +422,11 @@ char* tesh_read_token(char *line) {
         return NULL;
     }
 
-    token = calloc(sizeof(char), token_length + 1);
+    token = (char*)malloc(1 + token_length * sizeof(char));
     strncpy(token, line + token_begin, token_length);
+    token[token_length] = 0;
 
+    // Supprime le token lu de 'line'
     memmove(line, line + token_end, strlen(line) - token_end + 1);
 
     return token;
