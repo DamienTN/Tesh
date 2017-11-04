@@ -254,9 +254,11 @@ Program* tesh_build_program(char *line) {
         }
         else if(strcmp(token, "&&") == 0) {
             program->last->link = CMD_LINK_AND;
+            tesh_add_command(program, tesh_create_cmd());
         }
         else if(strcmp(token, "||") == 0) {
             program->last->link = CMD_LINK_OR;
+            tesh_add_command(program, tesh_create_cmd());
         }
         else if(strcmp(token, "<") == 0) {
             char   *redirect;
