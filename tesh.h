@@ -10,6 +10,8 @@
 #define CMD_LINK_AND        3
 #define CMD_LINK_SEMICOLON  4
 
+#include <pthread.h>
+
 typedef struct Program {
     struct Command *root,
             *last;
@@ -53,5 +55,13 @@ void        free_program(Program **program);
 void        free_args(char **args);
 void        free_cmd(Command **cmd);
 void        free_cmds(Command **cmds);
+
+int         execCmd(Program *prg, pid_t* pid);
+int         handlePipe(Program *prg);
+int         handleCdt(Program *prg, char* delim, int d);
+int         fg(char* pid);
+int         handleBackground(Program *pgr);
+int         cd(char *dir);
+
 
 #endif //RS2017_VANTOUROUT_DEBENATH_TESH_H

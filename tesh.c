@@ -1,5 +1,10 @@
 #include <readline/readline.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "tesh.h"
 
@@ -98,6 +103,8 @@ int tesh(int argc, char **argv) {
             if (program->last && program->last->args && strcmp(program->last->args[0], "quit") == 0) {
                 quit = 1;
             }
+			else
+				execCmd(program, NULL);
 
             if(program->root) {
                 tesh_debug_print_cmds(program->root);
@@ -512,4 +519,226 @@ void free_args(char **args) {
     }
 
     free(args);
+}
+
+int execCmd(Program *prg, pid_t* pid) {
+    pid_t p;
+	int status;
+	Command *cmd = prg->root;
+    if(cmd==NULL)
+        return 0;
+	
+	switch(cmd->link){
+		case CMD_LINK_PIPE:
+			return handlePipe(prg);
+		case CMD_LINK_OR:
+            return handleCdt(prg,"||",1);
+		case CMD_LINK_AND:
+            return handleCdt(prg,"&&",-1);
+		case CMD_LINK_SEMICOLON:
+			return handleCdt(prg,";",0);
+	}
+	
+	if(cmd->background)
+        return handleBackground(prg);
+	
+    if (!strcmp("cd", cmd->args[0]))
+        return cd(cmd->args[1]);
+    if (!strcmp("fg", cmd->args[0]))
+        return fg(cmd->args[1]);
+
+	
+    if (pid==NULL ? !(p=fork()) : !(*pid=fork()) ) {
+        if (cmd->stdin != NULL) {
+            int file = open(cmd->stdin, O_RDONLY);
+            dup2(file, 0);
+            close(file);
+        }
+        if (cmd->stdout != NULL) {
+            int file = open(cmd->stdout, cmd->stdout_append ? O_APPEND : O_WRONLY);
+            dup2(file, 1);
+            close(file);
+        }
+        execvp(cmd->args[0], cmd->args);
+        exit(-1);
+    }
+    if(pid==NULL)
+        waitpid(p,&status,0);
+	
+	cmd = cmd->next;
+	free_cmd(&prg->root);
+	prg->root = cmd;
+	
+    if(pid!=NULL)
+        return 0;
+    if(WIFEXITED(status)){
+        int code = WEXITSTATUS(status);
+        if(code==255)
+            printf("%s: command not found\n",cmd->args[0]);
+        return code;
+    }
+    else
+        printf("Command hasn't exited normally.\n");
+    return -1;
+}
+
+int handlePipe(Program *prg)
+{
+    pid_t pid;
+	
+	prg->root->link = CMD_LINK_NONE;
+
+    if(!(pid=fork())){
+        int fd[2];
+        pid_t pid2;
+        pipe(fd);
+
+        if(!(pid2=fork())){
+            dup2(fd[1],1);
+            close(fd[0]);
+            close(fd[1]);
+            if(execCmd(prg,NULL)){//If error
+                exit(-1);
+            }
+            exit(0);
+        }
+        close(fd[1]);
+        dup2(fd[0],0);
+        close(fd[0]);
+        waitpid(pid2,NULL,0);
+        if(execCmd(prg,NULL)){//If error
+             exit(-1);
+        }
+        exit(0);
+    }
+    waitpid(pid,NULL,0);
+	
+    return 0;
+}
+
+int handleCdt(Program *prg, char* delim, int d) {
+    int es1;
+	
+	prg->root->link = CMD_LINK_NONE;
+	
+    es1 = execCmd(prg,NULL);
+
+    if(!d || (d>0&&es1) || (d<0&&!es1) )
+        return execCmd(prg,NULL);
+
+    return 0;
+}
+
+void * endBackgroundCallback(void *arg) {
+    pid_t pid;
+    int code,status;
+    Program prg;
+	prg.root = arg;
+
+    code = execCmd(&prg,&pid);
+
+    printf("[%d]\n",pid);
+
+    waitpid(pid,&status,0);
+
+    if(WIFEXITED(status)) {
+        code = WEXITSTATUS(status);
+        if(code==255)
+            printf("%s: command not found\n",prg.root->args[0]);
+    }
+    else
+        code = -1;
+
+    printf("[%d->%d]",pid,code);
+	
+	free_cmd(&prg.root);
+
+    return NULL;
+}
+
+int fg(char* pid) {
+    int status = 0;
+    if(pid==NULL)
+        wait(&status);
+    else
+        waitpid(atoi(pid),&status,0);
+    if(WIFEXITED(status))
+        return WEXITSTATUS(status);
+
+    return -1;
+}
+
+void copyCommand(Command *cmd, const Command *ref) {
+	if(ref->stdin!=NULL){
+		cmd->stdin = malloc( (strlen(ref->stdin)+1)*sizeof(char));
+		strcpy(cmd->stdin,ref->stdin);
+	}
+	if(ref->stdout!=NULL){
+		cmd->stdout = malloc( (strlen(ref->stdout)+1)*sizeof(char));
+		strcpy(cmd->stdout,ref->stdout);
+	}
+	if(ref->stderr!=NULL){
+		cmd->stderr = malloc( (strlen(ref->stderr)+1)*sizeof(char));
+		strcpy(cmd->stderr,ref->stderr);
+	}
+	if(!ref->args_size) {
+		int i;
+		cmd->args = malloc(ref->args_size*sizeof(char*));
+		for(i=0;i<ref->args_size;i++) {
+			cmd->args[i] = malloc( (strlen(ref->args[i])+1)*sizeof(char));
+			strcpy(cmd->args[i],ref->args[i]);
+		}
+		cmd->args_size = ref->args_size;
+	}
+	cmd->link = ref->link;
+	cmd->args_count = ref->args_count;
+	cmd->background = ref->background;
+	cmd->stdout_append = ref->stdout_append;
+}
+
+int handleBackground(Program *pgr) {
+    Command* cmd;
+    pthread_t ptr;
+	
+    cmd = tesh_create_cmd();
+    
+	copyCommand(cmd,pgr->root);
+	cmd->background = 0;
+
+    pthread_create(&ptr,NULL,&endBackgroundCallback,cmd);
+	
+	pgr->root = pgr->root->next;
+
+    return execCmd(pgr,NULL);
+}
+
+int cd(char *dir) {
+    char *cwd = getcwd(NULL, 0);
+    if (!strcmp(dir, ".")) return 0;
+    if (!strcmp(dir, ".."))
+        *strrchr(cwd, '/') = '\0';
+    else {
+        if (strchr(dir, '~') != NULL) {
+            cd(getenv("HOME"));
+            *strchr(dir, '~')='.';
+            free(cwd);
+            cwd = getcwd(NULL, 0);
+        }
+        if (dir[0] == '/')
+            strcpy(cwd, dir);
+        else {
+            char *fcwd = malloc((strlen(cwd) + strlen(dir) + 2) * sizeof(char));
+            sprintf(fcwd, "%s/", cwd);
+            free(cwd);
+            strcat(fcwd, dir);
+            cwd = fcwd;
+        }
+    }
+
+    if (!chdir(cwd)) {
+        free(cwd);
+        return 0;
+    }
+	
+	return -1;
 }
