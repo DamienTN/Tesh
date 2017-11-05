@@ -23,3 +23,7 @@ clean:
 
 mrproper: clean
 	rm -rf $(EXEC)
+
+debug: CFLAGS += -g -DDEBUG
+debug: $(EXEC)
+

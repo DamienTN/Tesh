@@ -56,11 +56,12 @@ void        free_args(char **args);
 void        free_cmd(Command **cmd);
 void        free_cmds(Command **cmds);
 
-int         execCmd(Program *prg, pid_t* pid);
+int         execCmds(Program *prg);
+int         execCmd(Command *cmd, pid_t* pid);
 int         handlePipe(Program *prg);
 int         handleCdt(Program *prg, char* delim, int d);
 int         fg(char* pid);
-int         handleBackground(Program *pgr);
+int         handleBackground(Command *cmd);
 int         cd(char *dir);
 
 
