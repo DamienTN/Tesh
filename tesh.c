@@ -485,32 +485,38 @@ Command* tesh_create_cmd() {
 }
 
 void free_program(Program **program) {
+    if(!*program) {
+        return;
+    }
+
     free_cmds(&(*program)->root);
     free(*program);
     *program = NULL;
 }
 
 void free_cmd(Command **cmd) {
-    if(*cmd) {
-        if ((*cmd)->args) {
-            free_args((*cmd)->args);
-        }
-
-        if ((*cmd)->stdin) {
-            free((*cmd)->stdin);
-        }
-
-        if ((*cmd)->stdout) {
-            free((*cmd)->stdout);
-        }
-
-        if ((*cmd)->stderr) {
-            free((*cmd)->stderr);
-        }
-
-        free(*cmd);
-        *cmd = NULL;
+    if(!*cmd) {
+        return;
     }
+
+    if ((*cmd)->args) {
+        free_args((*cmd)->args);
+    }
+
+    if ((*cmd)->stdin) {
+        free((*cmd)->stdin);
+    }
+
+    if ((*cmd)->stdout) {
+        free((*cmd)->stdout);
+    }
+
+    if ((*cmd)->stderr) {
+        free((*cmd)->stderr);
+    }
+
+    free(*cmd);
+    *cmd = NULL;
 }
 
 void free_cmds(Command **cmds) {
