@@ -1,6 +1,6 @@
-#include <readline/readline.h>
-#include <readline/history.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/types.h>
@@ -9,6 +9,13 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
+#include <dlfcn.h>
+#include <ctype.h>
+
+#ifdef READLINE_STATIC_LOAD
+#include <readline/readline.h>
+#include <readline/history.h>
+#endif
 
 #include "tesh.h"
 
@@ -67,6 +74,12 @@ void tesh_debug_print_cmds(Command *cmds) {
  */
 
 teshContext execContext;
+
+#ifndef READLINE_STATIC_LOAD
+char* (*readline)(char*) = NULL;
+void (*add_history)(char*) = NULL;
+void* handleLibreadline = NULL;
+#endif
 
 int isValideChar(int c)
 {
@@ -164,6 +177,11 @@ int tesh(int argc, char **argv) {
 
         free(line);
     }
+	
+#ifndef READLINE_STATIC_LOAD
+	if(readline!=NULL)
+		dlclose(handleLibreadline);
+#endif
 
     return EXIT_SUCCESS;
 }
@@ -193,7 +211,7 @@ char* tesh_readline() {
 
             line[line_length - 1] = 0;
 
-            line_append = readline("> ");
+            line_append = (*execContext.getCmd)("> ");
 
             line_tmp = (char *) malloc(1 + line_length * sizeof(char));
             strcpy(line_tmp, line);
@@ -933,10 +951,35 @@ char * getEntry(char *promt) {
 }
 
 char * getCmdInter(char *promt) {
-    char *cmd;
+	char *cmd;
+	
+#ifndef READLINE_STATIC_LOAD
+	if(readline==NULL){
+		handleLibreadline = dlopen("libreadline.so",RTLD_LAZY);
+		if(!handleLibreadline){
+			printf("Error while loading libreadline.so : %s\n",dlerror());
+			exit(-1);
+		}
+		dlerror();
+		readline = dlsym(handleLibreadline,"readline");
+		if(readline==NULL){
+			printf("Error while loading function readline : %s\n",dlerror());
+			exit(-1);
+		}
+		add_history = dlsym(handleLibreadline,"add_history");
+		if(add_history==NULL){
+			printf("Error while loading function add_history : %s\n",dlerror());
+			exit(-1);
+		}
+	}
+	
+    cmd = (*readline)(promt);
+    (*add_history)(cmd);
+#endif
+#ifdef READLINE_STATIC_LOAD
     cmd = readline(promt);
     add_history(cmd);
-
+#endif
     return cmd;
 }
 

@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall
-LDFLAGS=-lreadline -pthread
+LDFLAGS=-ldl -pthread
 BIN_DIR=./bin
 OBJ_DIR=$(BIN_DIR)/obj
 EXEC=tesh
@@ -27,3 +27,10 @@ mrproper: clean
 debug: CFLAGS += -g -DDEBUG
 debug: $(EXEC)
 
+static_readline: CFLAGS+= -DREADLINE_STATIC_LOAD
+static_readline: LDFLAGS+= -lreadline
+static_readline: $(EXEC)
+
+debug_static_readline: CFLAGS+= -g -DDEBUG -DREADLINE_STATIC_LOAD
+debug_static_readline: LDFLAGS+= -lreadline
+debug_static_readline: $(EXEC)
