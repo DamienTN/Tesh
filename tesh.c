@@ -546,14 +546,9 @@ void free_args(char **args) {
 
 int execCmd(Program *prg, pid_t* pid) {
     pid_t p;
-<<<<<<< HEAD
 	int status;
 	char *cmd2Print;
 	Command *cmd = prg->root;
-=======
-    int status;
-    Command *cmd = prg->root;
->>>>>>> e403ad9db0c0b778efde20326dbb1cde4df0b929
     if(cmd==NULL)
         return 0;
 
