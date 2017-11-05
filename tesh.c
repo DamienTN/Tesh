@@ -98,18 +98,26 @@ int tesh(int argc, char **argv) {
 
     while(!quit) {
         line = tesh_readline();
+
+        // EOF
+        if(!line) {
+            break;
+        }
+
         program = tesh_build_program(line);
 
         if(program) {
             if(program->root) {
+#ifdef DEBUG
                 tesh_debug_print_cmds(program->root);
+#endif
             }
 
             if (program->last && program->last->args && strcmp(program->last->args[0], "quit") == 0) {
                 quit = 1;
             }
-			else
-				execCmd(program, NULL);
+            else
+                execCmd(program, NULL);
 
             free_program(&program);
         }
@@ -125,6 +133,12 @@ char* tesh_readline() {
     size_t  line_length;
 
     line = readline("~ ");
+
+    // EOF
+    if(line == NULL) {
+        return NULL;
+    }
+
     line_length = strlen(line);
 
     if(line_length > 0) {
@@ -347,7 +361,7 @@ Program* tesh_build_program(char *line) {
  * @return
  */
 char* tesh_read_token(char *line) {
-    if(strlen(line) == 0) {
+    if(line == NULL || strlen(line) == 0) {
         return NULL;
     }
 
@@ -526,47 +540,47 @@ void free_args(char **args) {
 
 int execCmd(Program *prg, pid_t* pid) {
     pid_t p;
-	int status;
-	Command *cmd = prg->root;
+    int status;
+    Command *cmd = prg->root;
     if(cmd==NULL)
         return 0;
-	
-	switch(cmd->link){
-		case CMD_LINK_PIPE:
-			return handlePipe(prg);
-		case CMD_LINK_OR:
+
+    switch(cmd->link){
+        case CMD_LINK_PIPE:
+            return handlePipe(prg);
+        case CMD_LINK_OR:
             return handleCdt(prg,"||",1);
-		case CMD_LINK_AND:
+        case CMD_LINK_AND:
             return handleCdt(prg,"&&",-1);
-		case CMD_LINK_SEMICOLON:
-			return handleCdt(prg,";",0);
-	}
-	
-	if(cmd->background)
+        case CMD_LINK_SEMICOLON:
+            return handleCdt(prg,";",0);
+    }
+
+    if(cmd->background)
         return handleBackground(prg);
-	
+
     if (!strcmp("cd", cmd->args[0]))
         return cd(cmd->args[1]);
     if (!strcmp("fg", cmd->args[0]))
         return fg(cmd->args[1]);
 
-	
+
     if (pid==NULL ? !(p=fork()) : !(*pid=fork()) ) {
         if (cmd->stdin != NULL) {
             int file = open(cmd->stdin, O_RDONLY);
-			if(file==-1){
-				printf("Open fail : %s\n", strerror(errno));
-			}
+            if(file==-1){
+                printf("Open fail : %s\n", strerror(errno));
+            }
             dup2(file, 0);
             close(file);
         }
         if (cmd->stdout != NULL) {
             int file = open(cmd->stdout, (cmd->stdout_append ? O_APPEND | O_WRONLY : O_WRONLY | O_TRUNC) | O_CREAT, 0644);
-			
-			if(file==-1){
-				printf("Open fail : %s\n", strerror(errno));
-			}
-			
+
+            if(file==-1){
+                printf("Open fail : %s\n", strerror(errno));
+            }
+
             dup2(file, 1);
             close(file);
         }
@@ -575,11 +589,11 @@ int execCmd(Program *prg, pid_t* pid) {
     }
     if(pid==NULL)
         waitpid(p,&status,0);
-	
-	cmd = cmd->next;
-	free_cmd(&prg->root);
-	prg->root = cmd;
-	
+
+    cmd = cmd->next;
+    free_cmd(&prg->root);
+    prg->root = cmd;
+
     if(pid!=NULL)
         return 0;
     if(WIFEXITED(status)){
@@ -596,8 +610,8 @@ int execCmd(Program *prg, pid_t* pid) {
 int handlePipe(Program *prg)
 {
     pid_t pid;
-	
-	prg->root->link = CMD_LINK_NONE;
+
+    prg->root->link = CMD_LINK_NONE;
 
     if(!(pid=fork())){
         int fd[2];
@@ -618,20 +632,20 @@ int handlePipe(Program *prg)
         close(fd[0]);
         waitpid(pid2,NULL,0);
         if(execCmd(prg,NULL)){//If error
-             exit(-1);
+            exit(-1);
         }
         exit(0);
     }
     waitpid(pid,NULL,0);
-	
+
     return 0;
 }
 
 int handleCdt(Program *prg, char* delim, int d) {
     int es1;
-	
-	prg->root->link = CMD_LINK_NONE;
-	
+
+    prg->root->link = CMD_LINK_NONE;
+
     es1 = execCmd(prg,NULL);
 
     if(!d || (d>0&&es1) || (d<0&&!es1) )
@@ -644,7 +658,7 @@ void * endBackgroundCallback(void *arg) {
     pid_t pid;
     int code,status;
     Program prg;
-	prg.root = arg;
+    prg.root = arg;
 
     code = execCmd(&prg,&pid);
 
@@ -661,8 +675,8 @@ void * endBackgroundCallback(void *arg) {
         code = -1;
 
     printf("[%d->%d]",pid,code);
-	
-	free_cmd(&prg.root);
+
+    free_cmd(&prg.root);
 
     return NULL;
 }
@@ -680,45 +694,45 @@ int fg(char* pid) {
 }
 
 void copyCommand(Command *cmd, const Command *ref) {
-	if(ref->stdin!=NULL){
-		cmd->stdin = malloc( (strlen(ref->stdin)+1)*sizeof(char));
-		strcpy(cmd->stdin,ref->stdin);
-	}
-	if(ref->stdout!=NULL){
-		cmd->stdout = malloc( (strlen(ref->stdout)+1)*sizeof(char));
-		strcpy(cmd->stdout,ref->stdout);
-	}
-	if(ref->stderr!=NULL){
-		cmd->stderr = malloc( (strlen(ref->stderr)+1)*sizeof(char));
-		strcpy(cmd->stderr,ref->stderr);
-	}
-	if(!ref->args_size) {
-		int i;
-		cmd->args = malloc(ref->args_size*sizeof(char*));
-		for(i=0;i<ref->args_size;i++) {
-			cmd->args[i] = malloc( (strlen(ref->args[i])+1)*sizeof(char));
-			strcpy(cmd->args[i],ref->args[i]);
-		}
-		cmd->args_size = ref->args_size;
-	}
-	cmd->link = ref->link;
-	cmd->args_count = ref->args_count;
-	cmd->background = ref->background;
-	cmd->stdout_append = ref->stdout_append;
+    if(ref->stdin!=NULL){
+        cmd->stdin = malloc( (strlen(ref->stdin)+1)*sizeof(char));
+        strcpy(cmd->stdin,ref->stdin);
+    }
+    if(ref->stdout!=NULL){
+        cmd->stdout = malloc( (strlen(ref->stdout)+1)*sizeof(char));
+        strcpy(cmd->stdout,ref->stdout);
+    }
+    if(ref->stderr!=NULL){
+        cmd->stderr = malloc( (strlen(ref->stderr)+1)*sizeof(char));
+        strcpy(cmd->stderr,ref->stderr);
+    }
+    if(!ref->args_size) {
+        int i;
+        cmd->args = malloc(ref->args_size*sizeof(char*));
+        for(i=0;i<ref->args_size;i++) {
+            cmd->args[i] = malloc( (strlen(ref->args[i])+1)*sizeof(char));
+            strcpy(cmd->args[i],ref->args[i]);
+        }
+        cmd->args_size = ref->args_size;
+    }
+    cmd->link = ref->link;
+    cmd->args_count = ref->args_count;
+    cmd->background = ref->background;
+    cmd->stdout_append = ref->stdout_append;
 }
 
 int handleBackground(Program *pgr) {
     Command* cmd;
     pthread_t ptr;
-	
+
     cmd = tesh_create_cmd();
-    
-	copyCommand(cmd,pgr->root);
-	cmd->background = 0;
+
+    copyCommand(cmd,pgr->root);
+    cmd->background = 0;
 
     pthread_create(&ptr,NULL,&endBackgroundCallback,cmd);
-	
-	pgr->root = pgr->root->next;
+
+    pgr->root = pgr->root->next;
 
     return execCmd(pgr,NULL);
 }
@@ -750,6 +764,6 @@ int cd(char *dir) {
         free(cwd);
         return 0;
     }
-	
-	return -1;
+
+    return -1;
 }
