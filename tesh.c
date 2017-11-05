@@ -932,7 +932,7 @@ char* getPromt() {
         perror("gethostname");
     }
 
-    if(user) {
+    if(!user) {
         f = malloc(strlen(hostname) + strlen(cwd) + 5 + 4);
         sprintf(f, "%s@%s:%s$ ", "user", hostname, cwd);
     }
