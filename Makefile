@@ -3,7 +3,7 @@ CFLAGS=-Wall
 LDFLAGS=-lreadline -pthread
 BIN_DIR=./bin
 OBJ_DIR=$(BIN_DIR)/obj
-EXEC=$(BIN_DIR)/tesh
+EXEC=tesh
 OBJ=$(addprefix $(OBJ_DIR)/, main.o tesh.o)
 
 all: make_dir $(EXEC)
