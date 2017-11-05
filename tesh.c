@@ -68,9 +68,9 @@ void tesh_debug_print_cmds(Command *cmds) {
 
 teshContext execContext;
 
-int isValideChar(char c)
+int isValideChar(int c)
 {
-    return isgraph(c)||c==' ';
+    return isgraph(c) || c == ' ';
 }
 int strrpl(char *str, char* s1, char *s2) {
     int i;
@@ -170,7 +170,7 @@ int tesh(int argc, char **argv) {
 char* tesh_readline() {
     char   *line, *promt;
     size_t  line_length;
-    
+
 	promt=getPromt();
     strrpl(promt,getenv("HOME"),"~/");
 
@@ -858,35 +858,51 @@ char * getEntry(char *promt) {
     int size = 32, block = 32;
     char *cmd = malloc(size * sizeof(char));
     int index = 0;
-    struct termios n, o;
+    struct termios n;
+    struct termios o;
 
     write(1,promt,strlen(promt));
 
     tcgetattr(0, &o);
-    n = o;
+    memcpy(&n, &o, sizeof(struct termios));
+    //n = o;
     n.c_lflag &= ~(ICANON | ECHO);
 
     tcsetattr(0, TCSANOW, &n);
 
     while (1) {
         char c;
-        read(0, &c, 1);
-        if (c == '\n') {
-            cmd[index] = '\0';
-            tcsetattr(0, TCSANOW, &o);
-            printf("\n");
-            return cmd;
-        } else if (isValideChar(c)) {
-            cmd[index] = c;
-            write(1, &c, 1);
-            index++;
-            if (index >= size) {
-                char *cmd2;
-                size += block;
-                cmd2 = malloc(size * sizeof(char));
-                strcpy(cmd2, cmd);
-                free(cmd);
-                cmd = cmd2;
+        int c_read;
+
+        c_read = read(0, &c, 1);
+
+        // Erreur de lecture
+        if(c_read < 0) {
+            perror("read");
+            return NULL;
+        }
+        // EOF
+        else if(c_read == 0) {
+            return NULL;
+        }
+        else {
+            if (c == '\n') {
+                cmd[index] = '\0';
+                tcsetattr(0, TCSANOW, &o);
+                printf("\n");
+                return cmd;
+            } else if (isValideChar(c)) {
+                cmd[index] = c;
+                write(1, &c, 1);
+                index++;
+                if (index >= size) {
+                    char *cmd2;
+                    size += block;
+                    cmd2 = malloc(size * sizeof(char));
+                    strcpy(cmd2, cmd);
+                    free(cmd);
+                    cmd = cmd2;
+                }
             }
         }
     }
