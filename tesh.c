@@ -878,14 +878,16 @@ char * getEntry(char *promt) {
     struct termios n;
     struct termios o;
 
-    write(1,promt,strlen(promt));
+	if(execContext.isInteractive){
+		write(1,promt,strlen(promt));
 
-    tcgetattr(0, &o);
-    memcpy(&n, &o, sizeof(struct termios));
-    //n = o;
-    n.c_lflag &= ~(ICANON | ECHO);
+		tcgetattr(0, &o);
+		memcpy(&n, &o, sizeof(struct termios));
+		//n = o;
+		n.c_lflag &= ~(ICANON | ECHO);
 
-    tcsetattr(0, TCSANOW, &n);
+		tcsetattr(0, TCSANOW, &n);
+	}
 
     while (1) {
         char c;
@@ -905,8 +907,10 @@ char * getEntry(char *promt) {
         else {
             if (c == '\n') {
                 cmd[index] = '\0';
-                tcsetattr(0, TCSANOW, &o);
-                printf("\n");
+				if(execContext.isInteractive){
+					tcsetattr(0, TCSANOW, &o);
+					printf("\n");
+				}
                 return cmd;
             } else if (isValideChar(c)) {
                 cmd[index] = c;
@@ -924,7 +928,8 @@ char * getEntry(char *promt) {
         }
     }
 
-    tcsetattr(0, TCSANOW, &o);
+	if(execContext.isInteractive)
+		tcsetattr(0, TCSANOW, &o);
 }
 
 char * getCmdInter(char *promt) {
@@ -936,11 +941,11 @@ char * getCmdInter(char *promt) {
 }
 
 char* getPromt() {
+	char *f;
 	if(execContext.isInteractive){
 		char *user = getenv("LOGNAME");
 		char *cwd = getcwd(NULL, 0);
 		char *hostname = malloc(50 * sizeof(char));
-		char *f;
 
 		if(gethostname(hostname, 50) < 0) {
 			perror("gethostname");
@@ -961,5 +966,7 @@ char* getPromt() {
 		return f;
 	}
 	
-	return malloc(sizeof(char));
+	f = malloc(sizeof(char));
+	f[0] = '\0';
+	return f;
 }
