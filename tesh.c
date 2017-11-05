@@ -843,7 +843,7 @@ void loadTeshContext(teshContext *t, int argc, char*argv[])
     int i;
 
     t->getCmd=&getEntry;
-    t->isInteractive=isatty(3);
+    t->isInteractive=isatty(1);
     t->exitIfError=0;
 
     for(i=1;i<argc;i++){
@@ -852,8 +852,22 @@ void loadTeshContext(teshContext *t, int argc, char*argv[])
        else if(!strcmp(argv[i],"-e"))
            t->exitIfError=1;
        else {
+           int file0 = open(argv[i], O_RDONLY);
+           int file1;
+           if(file0==-1){
+               perror("open");
+           }
+           dup2(file0, 0);
+           close(file0);
+		   
+		   file1 = open("/dev/null", O_WRONLY);
+           if(file1==-1){
+           	   perror("open");
+           }
+           dup2(file1, 1);
+           close(file1);
+		   
            t->isInteractive=0;
-           t->getCmd=&getCmdFromFile;
        }
     }
 }
@@ -921,31 +935,31 @@ char * getCmdInter(char *promt) {
     return cmd;
 }
 
-char * getCmdFromFile(char *path){
-    return NULL;
-}
-
 char* getPromt() {
-    char *user = getenv("LOGNAME");
-    char *cwd = getcwd(NULL, 0);
-    char *hostname = malloc(50 * sizeof(char));
-    char *f;
+	if(execContext.isInteractive){
+		char *user = getenv("LOGNAME");
+		char *cwd = getcwd(NULL, 0);
+		char *hostname = malloc(50 * sizeof(char));
+		char *f;
 
-    if(gethostname(hostname, 50) < 0) {
-        perror("gethostname");
-    }
+		if(gethostname(hostname, 50) < 0) {
+			perror("gethostname");
+		}
 
-    if(!user) {
-        f = malloc(strlen(hostname) + strlen(cwd) + 5 + 4);
-        sprintf(f, "%s@%s:%s$ ", "user", hostname, cwd);
-    }
-    else {
-        f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
-        sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
-    }
+		if(!user) {
+			f = malloc(strlen(hostname) + strlen(cwd) + 5 + 4);
+			sprintf(f, "%s@%s:%s$ ", "user", hostname, cwd);
+		}
+		else {
+			f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
+			sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
+		}
 
-    free(cwd);
-    free(hostname);
+		free(cwd);
+		free(hostname);
 
-    return f;
+		return f;
+	}
+	
+	return malloc(sizeof(char));
 }

@@ -73,7 +73,6 @@ int         cd(char *dir);
 void        loadTeshContext(teshContext *t, int argc, char*argv[]);
 char *      getEntry(char *promt);
 char *      getCmdInter(char *promt);
-char *      getCmdFromFile(char *path);
 char *      getPromt();
 
 #endif //RS2017_VANTOUROUT_DEBENATH_TESH_H
