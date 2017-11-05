@@ -32,6 +32,12 @@ typedef struct Command {
     struct Command  *next;
 } Command;
 
+typedef struct teshContext{
+   char * (*getCmd)(char*);
+   int isInteractive;
+   int exitIfError;
+}teshContext;
+
 /*
  * DEBUG
  */
@@ -64,5 +70,10 @@ int         fg(char* pid);
 int         handleBackground(Command *cmd);
 int         cd(char *dir);
 
+void        loadTeshContext(teshContext *t, int argc, char*argv[]);
+char *      getEntry(char *promt);
+char *      getCmdInter(char *promt);
+char *      getCmdFromFile(char *path);
+char *      getPromt();
 
 #endif //RS2017_VANTOUROUT_DEBENATH_TESH_H
