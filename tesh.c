@@ -527,6 +527,7 @@ void free_args(char **args) {
 int execCmd(Program *prg, pid_t* pid) {
     pid_t p;
 	int status;
+	char *cmd2Print;
 	Command *cmd = prg->root;
     if(cmd==NULL)
         return 0;
@@ -573,8 +574,11 @@ int execCmd(Program *prg, pid_t* pid) {
         execvp(cmd->args[0], cmd->args);
         exit(-1);
     }
-    if(pid==NULL)
+    if(pid==NULL) {
         waitpid(p,&status,0);
+		cmd2Print = malloc((strlen(cmd->args[0])+1)*sizeof(char));
+		strcpy(cmd2Print,cmd->args[0]);
+	}
 	
 	cmd = cmd->next;
 	free_cmd(&prg->root);
@@ -585,7 +589,8 @@ int execCmd(Program *prg, pid_t* pid) {
     if(WIFEXITED(status)){
         int code = WEXITSTATUS(status);
         if(code==255)
-            printf("%s: command not found\n",cmd->args[0]);
+            printf("%s: command not found\n",cmd2Print);
+		free(cmd2Print);
         return code;
     }
     else
