@@ -927,11 +927,19 @@ char* getPromt() {
     char *cwd = getcwd(NULL, 0);
     char *hostname = malloc(50 * sizeof(char));
     char *f;
-    gethostname(hostname, 50);
 
-    f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
+    if(gethostname(hostname, 50) < 0) {
+        perror("gethostname");
+    }
 
-    sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
+    if(user) {
+        f = malloc(strlen(hostname) + strlen(cwd) + 5 + 4);
+        sprintf(f, "%s@%s:%s$ ", "user", hostname, cwd);
+    }
+    else {
+        f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
+        sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
+    }
 
     free(cwd);
     free(hostname);
