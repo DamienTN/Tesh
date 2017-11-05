@@ -6,9 +6,6 @@ OBJ_DIR=$(BIN_DIR)/obj
 EXEC=$(BIN_DIR)/tesh
 OBJ=$(addprefix $(OBJ_DIR)/, main.o tesh.o)
 
-debug: CFLAGS += -g -DDEBUG
-debug: $(EXEC)
-
 all: make_dir $(EXEC)
 
 make_dir:

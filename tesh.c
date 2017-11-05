@@ -23,7 +23,7 @@ void tesh_debug_print_cmds(Command *cmds) {
 
         if(current_cmd->args) {
             for (i = 0; current_cmd->args[i]; i++) {
-                printf("%s ", current_cmd->args[i]);
+                printf("(%d) %s ", i, current_cmd->args[i]);
             }
 
             printf("\n");
@@ -101,15 +101,15 @@ int tesh(int argc, char **argv) {
         program = tesh_build_program(line);
 
         if(program) {
+            if(program->root) {
+                tesh_debug_print_cmds(program->root);
+            }
+
             if (program->last && program->last->args && strcmp(program->last->args[0], "quit") == 0) {
                 quit = 1;
             }
 			else
 				execCmd(program, NULL);
-
-            if(program->root) {
-                tesh_debug_print_cmds(program->root);
-            }
 
             free_program(&program);
         }
