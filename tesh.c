@@ -579,7 +579,7 @@ int execCmd(Command *cmd, pid_t* pid) {
         if (cmd->stdin != NULL) {
             int file = open(cmd->stdin, O_RDONLY);
             if(file==-1){
-                printf("Open fail : %s\n", strerror(errno));
+                perror("open");
             }
             dup2(file, 0);
             close(file);
@@ -588,7 +588,7 @@ int execCmd(Command *cmd, pid_t* pid) {
             int file = open(cmd->stdout, (cmd->stdout_append ? O_APPEND : O_TRUNC) | O_WRONLY | O_CREAT, 0644);
 
             if(file==-1){
-                printf("Open fail : %s\n", strerror(errno));
+                perror("open");
             }
 
             dup2(file, 1);
@@ -627,7 +627,7 @@ int handlePipe(Program *prg)
         pipe(fd);
 		
 		if(fd[0]==-1 || fd[1]==-1){
-            printf("Pipe fail : %s\n", strerror(errno));
+            perror("pipe");
 		}
 
         if(!(pid2=fork())){
@@ -694,6 +694,8 @@ void * endBackgroundCallback(void *arg) {
         code = -1;
 
     printf("[%d->%d]",pid,code);
+	
+	free_cmd(&cmd);
 
     return NULL;
 }
@@ -710,12 +712,49 @@ int fg(char* pid) {
     return -1;
 }
 
+void copyCommand(Command *cmd, const Command *ref) {
+    if(ref->stdin!=NULL){
+        cmd->stdin = malloc( (strlen(ref->stdin)+1)*sizeof(char));
+        strcpy(cmd->stdin,ref->stdin);
+    }
+	else
+		cmd->stdin = NULL;
+    if(ref->stdout!=NULL){
+        cmd->stdout = malloc( (strlen(ref->stdout)+1)*sizeof(char));
+        strcpy(cmd->stdout,ref->stdout);
+    }
+	else
+		cmd->stdout = NULL;
+    if(ref->stderr!=NULL){
+        cmd->stderr = malloc( (strlen(ref->stderr)+1)*sizeof(char));
+        strcpy(cmd->stderr,ref->stderr);
+    }
+	else
+		cmd->stderr = NULL;
+    if(ref->args_size) {
+        int i;
+        cmd->args = malloc(ref->args_size*sizeof(char*));
+        for(i=0;i<ref->args_size && ref->args[i]!=NULL;i++) {
+			cmd->args[i] = malloc( (strlen(ref->args[i])+1)*sizeof(char));
+			strcpy(cmd->args[i],ref->args[i]);
+        }
+		for(;i<ref->args_size;i++)
+			cmd->args[i] = NULL;
+        cmd->args_size = ref->args_size;
+    }
+    cmd->link = ref->link;
+    cmd->args_count = ref->args_count;
+    cmd->background = ref->background;
+    cmd->stdout_append = ref->stdout_append;
+}
+
 int handleBackground(Command* cmd) {
     pthread_t ptr;
+	Command* cmd2 = malloc(sizeof(Command));
 
-    cmd->background = 0;
+	copyCommand(cmd2,cmd);
 
-    pthread_create(&ptr,NULL,&endBackgroundCallback,cmd);
+    pthread_create(&ptr,NULL,&endBackgroundCallback,cmd2);
 	
     return 0;
 }
