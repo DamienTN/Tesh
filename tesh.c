@@ -155,8 +155,9 @@ int tesh(int argc, char **argv) {
             if (program->last && program->last->args && strcmp(program->last->args[0], "quit") == 0) {
                 quit = 1;
             }
-            else
-                execCmds(program);
+            else if( execCmds(program) && execContext.exitIfError) {
+				quit = 1;
+			}
 
             free_program(&program);
         }
@@ -650,7 +651,9 @@ int execCmd(Command *cmd, pid_t* pid) {
         int code = WEXITSTATUS(status);
         if(code==255)
             printf("%s: command not found\n",cmd->args[0]);
-		
+#ifdef DEBUG
+			printf("Exit code : %d\n",code);
+#endif
         return code;
     }
     else
