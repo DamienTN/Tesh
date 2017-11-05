@@ -1,11 +1,14 @@
 #include <readline/readline.h>
+#include <readline/history.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <termios.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "tesh.h"
 
@@ -63,6 +66,39 @@ void tesh_debug_print_cmds(Command *cmds) {
  * TESH
  */
 
+teshContext execContext;
+
+int isValideChar(char c)
+{
+    return isgraph(c)||c==' ';
+}
+int strrpl(char *str, char* s1, char *s2) {
+    int i;
+    for (i = 0; i < strlen(str); i++) {
+        if (str[i] == s1[0]) {
+            int j, cnt = 1;
+            for (j = 0; j < strlen(s1) && i < strlen(str) && cnt; j++) {
+                if (str[i] != s1[j])
+                    cnt = 0;
+                i++;
+            }
+            if (cnt) {
+
+                assert(strlen(s1) >= strlen(s2));
+
+                for (j = 0; j < strlen(s2); j++)
+                    str[i - strlen(s1) + j] = s2[j];
+                for (; j + i - strlen(s2) + 1 < strlen(str); j++)
+                    str[i - strlen(s1) + j] = str[i + j - strlen(s2) + 1];
+                str[i - strlen(s1) + j] = '\0';
+
+            } else
+                i--;
+        }
+    }
+	return 0;
+}
+
 int isquote(int c) {
     return (
             c == '\'' ||
@@ -95,6 +131,9 @@ int tesh(int argc, char **argv) {
     int         quit;
 
     quit = 0;
+    cd(getenv("PWD"));
+
+    loadTeshContext(&execContext, argc, argv);
 
     while(!quit) {
         line = tesh_readline();
@@ -129,10 +168,15 @@ int tesh(int argc, char **argv) {
 }
 
 char* tesh_readline() {
-    char   *line;
+    char   *line, *promt;
     size_t  line_length;
+    
+	promt=getPromt();
+    strrpl(promt,getenv("HOME"),"~/");
 
-    line = readline("~ ");
+    line = (*execContext.getCmd)(promt);
+	
+	free(promt);
 
     // EOF
     if(line == NULL) {
@@ -788,4 +832,93 @@ int cd(char *dir) {
     }
 
     return -1;
+}
+
+
+void loadTeshContext(teshContext *t, int argc, char*argv[])
+{
+    int i;
+
+    t->getCmd=&getEntry;
+    t->isInteractive=isatty(3);
+    t->exitIfError=0;
+
+    for(i=1;i<argc;i++){
+       if(!strcmp(argv[i],"-r"))
+           t->getCmd=getCmdInter;
+       else if(!strcmp(argv[i],"-e"))
+           t->exitIfError=1;
+       else {
+           t->isInteractive=0;
+           t->getCmd=&getCmdFromFile;
+       }
+    }
+}
+char * getEntry(char *promt) {
+    int size = 32, block = 32;
+    char *cmd = malloc(size * sizeof(char));
+    int index = 0;
+    struct termios n, o;
+
+    write(1,promt,strlen(promt));
+
+    tcgetattr(0, &o);
+    n = o;
+    n.c_lflag &= ~(ICANON | ECHO);
+
+    tcsetattr(0, TCSANOW, &n);
+
+    while (1) {
+        char c;
+        read(0, &c, 1);
+        if (c == '\n') {
+            cmd[index] = '\0';
+            tcsetattr(0, TCSANOW, &o);
+            printf("\n");
+            return cmd;
+        } else if (isValideChar(c)) {
+            cmd[index] = c;
+            write(1, &c, 1);
+            index++;
+            if (index >= size) {
+                char *cmd2;
+                size += block;
+                cmd2 = malloc(size * sizeof(char));
+                strcpy(cmd2, cmd);
+                free(cmd);
+                cmd = cmd2;
+            }
+        }
+    }
+
+    tcsetattr(0, TCSANOW, &o);
+}
+
+char * getCmdInter(char *promt) {
+    char *cmd;
+    cmd = readline(promt);
+    add_history(cmd);
+
+    return cmd;
+}
+
+char * getCmdFromFile(char *path){
+    return NULL;
+}
+
+char* getPromt() {
+    char *user = getenv("LOGNAME");
+    char *cwd = getcwd(NULL, 0);
+    char *hostname = malloc(50 * sizeof(char));
+    char *f;
+    gethostname(hostname, 50);
+
+    f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
+
+    sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
+
+    free(cwd);
+    free(hostname);
+
+    return f;
 }
