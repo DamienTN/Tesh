@@ -65,7 +65,7 @@ void        free_cmds(Command **cmds);
 int         execCmds(Program *prg);
 int         execCmd(Command *cmd, pid_t* pid);
 int         handlePipe(Program *prg);
-int         handleCdt(Program *prg, char* delim, int d);
+int         handleCdt(Program *prg, int d);
 int         fg(char* pid);
 int         handleBackground(Command *cmd);
 int         cd(char *dir);

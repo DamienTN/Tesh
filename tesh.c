@@ -85,6 +85,7 @@ int isValideChar(int c)
 {
     return isgraph(c) || c == ' ';
 }
+
 int strrpl(char *str, char* s1, char *s2) {
     int i;
     for (i = 0; i < strlen(str); i++) {
@@ -109,7 +110,7 @@ int strrpl(char *str, char* s1, char *s2) {
                 i--;
         }
     }
-	return 0;
+    return 0;
 }
 
 int isquote(int c) {
@@ -608,40 +609,40 @@ void free_args(char **args) {
 }
 
 int execCmds(Program *prg) {
-    if(prg->root==NULL)
+    if (prg->root == NULL)
         return 0;
 
-    switch(prg->root->link){
+    switch (prg->root->link) {
         case CMD_LINK_PIPE:
             return handlePipe(prg);
         case CMD_LINK_OR:
-            return handleCdt(prg,"||",1);
+            return handleCdt(prg, 1);
         case CMD_LINK_AND:
-            return handleCdt(prg,"&&",-1);
+            return handleCdt(prg, -1);
         case CMD_LINK_SEMICOLON:
-            return handleCdt(prg,";",0);
+            return handleCdt(prg, 0);
     }
 
-    if(prg->root->background)
+    if (prg->root->background)
         return handleBackground(prg->root);
-	
-	return execCmd(prg->root,NULL);
+
+    return execCmd(prg->root, NULL);
 }
 
 int execCmd(Command *cmd, pid_t* pid) {
     pid_t p;
-	int status;
-	
+    int status;
+
     if (!strcmp("cd", cmd->args[0]))
         return cd(cmd->args[1]);
     if (!strcmp("fg", cmd->args[0]))
         return fg(cmd->args[1]);
 
 
-    if (pid==NULL ? !(p=fork()) : !(*pid=fork()) ) {
+    if (pid == NULL ? !(p = fork()) : !(*pid = fork())) {
         if (cmd->stdin != NULL) {
             int file = open(cmd->stdin, O_RDONLY);
-            if(file==-1){
+            if (file == -1) {
                 perror("open");
             }
             dup2(file, 0);
@@ -650,7 +651,7 @@ int execCmd(Command *cmd, pid_t* pid) {
         if (cmd->stdout != NULL) {
             int file = open(cmd->stdout, (cmd->stdout_append ? O_APPEND : O_TRUNC) | O_WRONLY | O_CREAT, 0644);
 
-            if(file==-1){
+            if (file == -1) {
                 perror("open");
             }
 
@@ -660,80 +661,78 @@ int execCmd(Command *cmd, pid_t* pid) {
         execvp(cmd->args[0], cmd->args);
         exit(-1);
     }
-    if(pid==NULL)
-        waitpid(p,&status,0);
-	
-    if(pid!=NULL)
+    if (pid == NULL)
+        waitpid(p, &status, 0);
+
+    if (pid != NULL)
         return 0;
-    if(WIFEXITED(status)){
+    if (WIFEXITED(status)) {
         int code = WEXITSTATUS(status);
-        if(code==255)
-            printf("%s: command not found\n",cmd->args[0]);
+        if (code == 255)
+            printf("%s: command not found\n", cmd->args[0]);
 #ifdef DEBUG
-			printf("Exit code : %d\n",code);
+        printf("Exit code : %d\n",code);
 #endif
         return code;
-    }
-    else
+    } else
         printf("Command hasn't exited normally.\n");
     return -1;
 }
 
-int handlePipe(Program *prg)
-{
+int handlePipe(Program *prg) {
     pid_t pid;
-	Command* cmd=prg->root->next;
+    Command *cmd = prg->root->next;
 
     prg->root->link = CMD_LINK_NONE;
 
-    if(!(pid=fork())){
+    if (!(pid = fork())) {
         int fd[2];
         pid_t pid2;
         pipe(fd);
-		
-		if(fd[0]==-1 || fd[1]==-1){
-            perror("pipe");
-		}
 
-        if(!(pid2=fork())){
-            dup2(fd[1],1);
+        if (fd[0] == -1 || fd[1] == -1) {
+            perror("pipe");
+        }
+
+        if (!(pid2 = fork())) {
+            dup2(fd[1], 1);
             close(fd[0]);
             close(fd[1]);
-            if(execCmd(prg->root,NULL)){//If error
+            if (execCmd(prg->root, NULL)) {//If error
                 exit(-1);
             }
             exit(0);
         }
         close(fd[1]);
-        dup2(fd[0],0);
+        dup2(fd[0], 0);
         close(fd[0]);
-        waitpid(pid2,NULL,0);
-		
-		free_cmd(&prg->root);
-		prg->root=cmd;
-		
-        if(execCmds(prg)){//If error
+        waitpid(pid2, NULL, 0);
+
+        free_cmd(&prg->root);
+        prg->root = cmd;
+
+        if (execCmds(prg)) {//If error
             exit(-1);
         }
         exit(0);
     }
-    waitpid(pid,NULL,0);
+    waitpid(pid, NULL, 0);
 
     return 0;
 }
 
-int handleCdt(Program *prg, char* delim, int d) {
+int handleCdt(Program *prg, int d) {
     int es1;
-	Command* cmd=prg->root->next;
+    Command *cmd = prg->root->next;
 
     prg->root->link = CMD_LINK_NONE;
 
-    es1 = execCmd(prg->root,NULL);
-	
-	free_cmd(&prg->root);
-	prg->root=cmd;
+    es1 = execCmd(prg->root, NULL);
 
-    if(!d || (d>0&&es1) || (d<0&&!es1) )
+    free_cmd(&prg->root);
+    prg->root = cmd;
+
+    if (!d || (d > 0 && es1) || (d < 0 && !es1))
         return execCmds(prg);
 
     return 0;
@@ -741,70 +740,66 @@ int handleCdt(Program *prg, char* delim, int d) {
 
 void * endBackgroundCallback(void *arg) {
     pid_t pid;
-    int code,status;
-    Command* cmd = arg;
+    int code, status;
+    Command *cmd = arg;
 
-    code = execCmd(cmd,&pid);
+    code = execCmd(cmd, &pid);
 
-    printf("[%d]\n",pid);
+    printf("[%d]\n", pid);
 
-    waitpid(pid,&status,0);
+    waitpid(pid, &status, 0);
 
-    if(WIFEXITED(status)) {
+    if (WIFEXITED(status)) {
         code = WEXITSTATUS(status);
-        if(code==255)
-            printf("%s: command not found\n",cmd->args[0]);
-    }
-    else
+        if (code == 255)
+            printf("%s: command not found\n", cmd->args[0]);
+    } else
         code = -1;
 
-    printf("[%d->%d]",pid,code);
-	
-	free_cmd(&cmd);
+    printf("[%d->%d]", pid, code);
+
+    free_cmd(&cmd);
 
     return NULL;
 }
 
 int fg(char* pid) {
     int status = 0;
-    if(pid==NULL)
+    if (pid == NULL)
         wait(&status);
     else
-        waitpid(atoi(pid),&status,0);
-    if(WIFEXITED(status))
+        waitpid(atoi(pid), &status, 0);
+    if (WIFEXITED(status))
         return WEXITSTATUS(status);
 
     return -1;
 }
 
 void copyCommand(Command *cmd, const Command *ref) {
-    if(ref->stdin!=NULL){
-        cmd->stdin = malloc( (strlen(ref->stdin)+1)*sizeof(char));
-        strcpy(cmd->stdin,ref->stdin);
-    }
-	else
-		cmd->stdin = NULL;
-    if(ref->stdout!=NULL){
-        cmd->stdout = malloc( (strlen(ref->stdout)+1)*sizeof(char));
-        strcpy(cmd->stdout,ref->stdout);
-    }
-	else
-		cmd->stdout = NULL;
-    if(ref->stderr!=NULL){
-        cmd->stderr = malloc( (strlen(ref->stderr)+1)*sizeof(char));
-        strcpy(cmd->stderr,ref->stderr);
-    }
-	else
-		cmd->stderr = NULL;
-    if(ref->args_size) {
+    if (ref->stdin != NULL) {
+        cmd->stdin = malloc((strlen(ref->stdin) + 1) * sizeof(char));
+        strcpy(cmd->stdin, ref->stdin);
+    } else
+        cmd->stdin = NULL;
+    if (ref->stdout != NULL) {
+        cmd->stdout = malloc((strlen(ref->stdout) + 1) * sizeof(char));
+        strcpy(cmd->stdout, ref->stdout);
+    } else
+        cmd->stdout = NULL;
+    if (ref->stderr != NULL) {
+        cmd->stderr = malloc((strlen(ref->stderr) + 1) * sizeof(char));
+        strcpy(cmd->stderr, ref->stderr);
+    } else
+        cmd->stderr = NULL;
+    if (ref->args_size) {
         int i;
-        cmd->args = malloc(ref->args_size*sizeof(char*));
-        for(i=0;i<ref->args_size && ref->args[i]!=NULL;i++) {
-			cmd->args[i] = malloc( (strlen(ref->args[i])+1)*sizeof(char));
-			strcpy(cmd->args[i],ref->args[i]);
+        cmd->args = malloc(ref->args_size * sizeof(char *));
+        for (i = 0; i < ref->args_size && ref->args[i] != NULL; i++) {
+            cmd->args[i] = malloc((strlen(ref->args[i]) + 1) * sizeof(char));
+            strcpy(cmd->args[i], ref->args[i]);
         }
-		for(;i<ref->args_size;i++)
-			cmd->args[i] = NULL;
+        for (; i < ref->args_size; i++)
+            cmd->args[i] = NULL;
         cmd->args_size = ref->args_size;
     }
     cmd->link = ref->link;
@@ -815,12 +810,12 @@ void copyCommand(Command *cmd, const Command *ref) {
 
 int handleBackground(Command* cmd) {
     pthread_t ptr;
-	Command* cmd2 = malloc(sizeof(Command));
+    Command *cmd2 = malloc(sizeof(Command));
 
-	copyCommand(cmd2,cmd);
+    copyCommand(cmd2, cmd);
 
-    pthread_create(&ptr,NULL,&endBackgroundCallback,cmd2);
-	
+    pthread_create(&ptr, NULL, &endBackgroundCallback, cmd2);
+
     return 0;
 }
 
@@ -832,7 +827,7 @@ int cd(char *dir) {
     else {
         if (strchr(dir, '~') != NULL) {
             cd(getenv("HOME"));
-            *strchr(dir, '~')='.';
+            *strchr(dir, '~') = '.';
             free(cwd);
             cwd = getcwd(NULL, 0);
         }
@@ -856,39 +851,39 @@ int cd(char *dir) {
 }
 
 
-void loadTeshContext(teshContext *t, int argc, char*argv[])
-{
+void loadTeshContext(teshContext *t, int argc, char*argv[]) {
     int i;
 
-    t->getCmd=&getEntry;
-    t->isInteractive=isatty(1);
-    t->exitIfError=0;
+    t->getCmd = &getEntry;
+    t->isInteractive = isatty(1);
+    t->exitIfError = 0;
 
-    for(i=1;i<argc;i++){
-       if(!strcmp(argv[i],"-r"))
-           t->getCmd=getCmdInter;
-       else if(!strcmp(argv[i],"-e"))
-           t->exitIfError=1;
-       else {
-           int file0 = open(argv[i], O_RDONLY);
-           int file1;
-           if(file0==-1){
-               perror("open");
-           }
-           dup2(file0, 0);
-           close(file0);
-		   
-		   file1 = open("/dev/null", O_WRONLY);
-           if(file1==-1){
-           	   perror("open");
-           }
-           dup2(file1, 1);
-           close(file1);
-		   
-           t->isInteractive=0;
-       }
+    for (i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-r"))
+            t->getCmd = getCmdInter;
+        else if (!strcmp(argv[i], "-e"))
+            t->exitIfError = 1;
+        else {
+            int file0 = open(argv[i], O_RDONLY);
+            int file1;
+            if (file0 == -1) {
+                perror("open");
+            }
+            dup2(file0, 0);
+            close(file0);
+
+            file1 = open("/dev/null", O_WRONLY);
+            if (file1 == -1) {
+                perror("open");
+            }
+            dup2(file1, 1);
+            close(file1);
+
+            t->isInteractive = 0;
+        }
     }
 }
+
 char * getEntry(char *promt) {
     int size = 32, block = 32;
     char *cmd = malloc(size * sizeof(char));
@@ -896,16 +891,16 @@ char * getEntry(char *promt) {
     struct termios n;
     struct termios o;
 
-	if(execContext.isInteractive){
-		write(1,promt,strlen(promt));
+    if (execContext.isInteractive) {
+        write(1, promt, strlen(promt));
 
-		tcgetattr(0, &o);
-		memcpy(&n, &o, sizeof(struct termios));
-		//n = o;
-		n.c_lflag &= ~(ICANON | ECHO);
+        tcgetattr(0, &o);
+        memcpy(&n, &o, sizeof(struct termios));
+        //n = o;
+        n.c_lflag &= ~(ICANON | ECHO);
 
-		tcsetattr(0, TCSANOW, &n);
-	}
+        tcsetattr(0, TCSANOW, &n);
+    }
 
     while (1) {
         char c;
@@ -914,25 +909,26 @@ char * getEntry(char *promt) {
         c_read = read(0, &c, 1);
 
         // Erreur de lecture
-        if(c_read < 0) {
+        if (c_read < 0) {
             perror("read");
             return NULL;
         }
-        // EOF
-        else if(c_read == 0) {
+            // EOF
+        else if (c_read == 0) {
             return NULL;
-        }
-        else {
+        } else {
             if (c == '\n') {
                 cmd[index] = '\0';
-				if(execContext.isInteractive){
-					tcsetattr(0, TCSANOW, &o);
-					printf("\n");
-				}
+                if (execContext.isInteractive) {
+                    tcsetattr(0, TCSANOW, &o);
+                    printf("\n");
+                }
                 return cmd;
             } else if (isValideChar(c)) {
                 cmd[index] = c;
+#ifdef PRINT_CMD
                 write(1, &c, 1);
+#endif
                 index++;
                 if (index >= size) {
                     char *cmd2;
@@ -946,33 +942,33 @@ char * getEntry(char *promt) {
         }
     }
 
-	if(execContext.isInteractive)
-		tcsetattr(0, TCSANOW, &o);
+    if (execContext.isInteractive)
+        tcsetattr(0, TCSANOW, &o);
 }
 
 char * getCmdInter(char *promt) {
-	char *cmd;
-	
+    char *cmd;
+
 #ifndef READLINE_STATIC_LOAD
-	if(readline==NULL){
-		handleLibreadline = dlopen("libreadline.so",RTLD_LAZY);
-		if(!handleLibreadline){
-			printf("Error while loading libreadline.so : %s\n",dlerror());
-			exit(-1);
-		}
-		dlerror();
-		readline = dlsym(handleLibreadline,"readline");
-		if(readline==NULL){
-			printf("Error while loading function readline : %s\n",dlerror());
-			exit(-1);
-		}
-		add_history = dlsym(handleLibreadline,"add_history");
-		if(add_history==NULL){
-			printf("Error while loading function add_history : %s\n",dlerror());
-			exit(-1);
-		}
-	}
-	
+    if (readline == NULL) {
+        handleLibreadline = dlopen("libreadline.so", RTLD_LAZY);
+        if (!handleLibreadline) {
+            printf("Error while loading libreadline.so : %s\n", dlerror());
+            exit(-1);
+        }
+        dlerror();
+        readline = dlsym(handleLibreadline, "readline");
+        if (readline == NULL) {
+            printf("Error while loading function readline : %s\n", dlerror());
+            exit(-1);
+        }
+        add_history = dlsym(handleLibreadline, "add_history");
+        if (add_history == NULL) {
+            printf("Error while loading function add_history : %s\n", dlerror());
+            exit(-1);
+        }
+    }
+
     cmd = (*readline)(promt);
     (*add_history)(cmd);
 #endif
@@ -984,32 +980,31 @@ char * getCmdInter(char *promt) {
 }
 
 char* getPromt() {
-	char *f;
-	if(execContext.isInteractive){
-		char *user = getenv("LOGNAME");
-		char *cwd = getcwd(NULL, 0);
-		char *hostname = malloc(50 * sizeof(char));
+    char *f;
+    if (execContext.isInteractive) {
+        char *user = getenv("LOGNAME");
+        char *cwd = getcwd(NULL, 0);
+        char *hostname = malloc(50 * sizeof(char));
 
-		if(gethostname(hostname, 50) < 0) {
-			perror("gethostname");
-		}
+        if (gethostname(hostname, 50) < 0) {
+            perror("gethostname");
+        }
 
-		if(!user) {
-			f = malloc(strlen(hostname) + strlen(cwd) + 5 + 4);
-			sprintf(f, "%s@%s:%s$ ", "user", hostname, cwd);
-		}
-		else {
-			f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
-			sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
-		}
+        if (!user) {
+            f = malloc(strlen(hostname) + strlen(cwd) + 5 + 4);
+            sprintf(f, "%s@%s:%s$ ", "user", hostname, cwd);
+        } else {
+            f = malloc(strlen(user) + strlen(hostname) + strlen(cwd) + 5);
+            sprintf(f, "%s@%s:%s$ ", user, hostname, cwd);
+        }
 
-		free(cwd);
-		free(hostname);
+        free(cwd);
+        free(hostname);
 
-		return f;
-	}
-	
-	f = malloc(sizeof(char));
-	f[0] = '\0';
-	return f;
+        return f;
+    }
+
+    f = malloc(sizeof(char));
+    f[0] = '\0';
+    return f;
 }

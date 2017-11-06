@@ -34,3 +34,6 @@ static_readline: $(EXEC)
 debug_static_readline: CFLAGS+= -g -DDEBUG -DREADLINE_STATIC_LOAD
 debug_static_readline: LDFLAGS+= -lreadline
 debug_static_readline: $(EXEC)
+
+print_cmd: CFLAGS+= -DPRINT_CMD
+print_cmd: $(EXEC)
