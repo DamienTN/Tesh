@@ -885,65 +885,11 @@ void loadTeshContext(teshContext *t, int argc, char*argv[]) {
 }
 
 char * getEntry(char *promt) {
-    int size = 32, block = 32;
-    char *cmd = malloc(size * sizeof(char));
-    int index = 0;
-    struct termios n;
-    struct termios o;
-
-    if (execContext.isInteractive) {
-        write(1, promt, strlen(promt));
-
-        tcgetattr(0, &o);
-        memcpy(&n, &o, sizeof(struct termios));
-        //n = o;
-        n.c_lflag &= ~(ICANON | ECHO);
-
-        tcsetattr(0, TCSANOW, &n);
-    }
-
-    while (1) {
-        char c;
-        int c_read;
-
-        c_read = read(0, &c, 1);
-
-        // Erreur de lecture
-        if (c_read < 0) {
-            perror("read");
-            return NULL;
-        }
-            // EOF
-        else if (c_read == 0) {
-            return NULL;
-        } else {
-            if (c == '\n') {
-                cmd[index] = '\0';
-                if (execContext.isInteractive) {
-                    tcsetattr(0, TCSANOW, &o);
-                    printf("\n");
-                }
-                return cmd;
-            } else if (isValideChar(c)) {
-                cmd[index] = c;
-#ifdef PRINT_CMD
-                write(1, &c, 1);
-#endif
-                index++;
-                if (index >= size) {
-                    char *cmd2;
-                    size += block;
-                    cmd2 = malloc(size * sizeof(char));
-                    strcpy(cmd2, cmd);
-                    free(cmd);
-                    cmd = cmd2;
-                }
-            }
-        }
-    }
-
-    if (execContext.isInteractive)
-        tcsetattr(0, TCSANOW, &o);
+    char *cmd = NULL;
+    size_t n = 0;
+    printf("%s", promt);
+    getline(&cmd, &n, stdin);
+    return cmd;
 }
 
 char * getCmdInter(char *promt) {
