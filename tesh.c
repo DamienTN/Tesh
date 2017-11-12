@@ -865,19 +865,12 @@ void loadTeshContext(teshContext *t, int argc, char*argv[]) {
             t->exitIfError = 1;
         else {
             int file0 = open(argv[i], O_RDONLY);
-            int file1;
+
             if (file0 == -1) {
                 perror("open");
             }
             dup2(file0, 0);
             close(file0);
-
-            file1 = open("/dev/null", O_WRONLY);
-            if (file1 == -1) {
-                perror("open");
-            }
-            dup2(file1, 1);
-            close(file1);
 
             t->isInteractive = 0;
         }
@@ -888,7 +881,10 @@ char * getEntry(char *promt) {
     char *cmd = NULL;
     size_t n = 0;
     printf("%s", promt);
-    getline(&cmd, &n, stdin);
+    if(getline(&cmd, &n, stdin)==-1){
+        free(cmd);
+        return NULL;
+    }
     return cmd;
 }
 
