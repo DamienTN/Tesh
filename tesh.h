@@ -4,13 +4,17 @@
 #define INIT_NB_ARGS        10
 #define EXTENDS_NB_ARGS     5
 
-#define CMD_LINK_NONE       0
-#define CMD_LINK_PIPE       1
-#define CMD_LINK_OR         2
-#define CMD_LINK_AND        3
-#define CMD_LINK_SEMICOLON  4
-
 #include <pthread.h>
+
+#include "alias.h"
+
+enum CMD_LINK {
+	CMD_LINK_NONE,
+	CMD_LINK_PIPE,
+	CMD_LINK_OR,
+	CMD_LINK_AND,       
+	CMD_LINK_SEMICOLON
+};
 
 typedef struct Program {
     struct Command *root,
@@ -69,6 +73,7 @@ int         handleCdt(Program *prg, int d);
 int         fg(char* pid);
 int         handleBackground(Command *cmd);
 int         cd(char *dir);
+int			alias(char *cmd);
 
 void        loadTeshContext(teshContext *t, int argc, char*argv[]);
 char *      getEntry(char *promt);

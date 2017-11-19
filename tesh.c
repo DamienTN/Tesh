@@ -184,6 +184,8 @@ int tesh(int argc, char **argv) {
 		dlclose(handleLibreadline);
 #endif
 
+	endAlias();
+
     return EXIT_SUCCESS;
 }
 
@@ -637,6 +639,8 @@ int execCmd(Command *cmd, pid_t* pid) {
         return cd(cmd->args[1]);
     if (!strcmp("fg", cmd->args[0]))
         return fg(cmd->args[1]);
+    if (!strcmp("alias", cmd->args[0]))
+		return alias(cmd->args[1]);
 
 
     if (pid == NULL ? !(p = fork()) : !(*pid = fork())) {
@@ -850,9 +854,17 @@ int cd(char *dir) {
     return -1;
 }
 
+int	alias(char *cmd){
+	char *s = cmd, *al = strchr(cmd,'=')+2;
+	(*(al+strlen(al)))='\0';
+	(*strchr(cmd,'=')) = '\0';
+	addAlias(s,al);
+	return 0;
+}
 
 void loadTeshContext(teshContext *t, int argc, char*argv[]) {
     int i;
+	FILE *config  = NULL;
 
     t->getCmd = &getEntry;
     t->isInteractive = isatty(1);
@@ -875,6 +887,10 @@ void loadTeshContext(teshContext *t, int argc, char*argv[]) {
             t->isInteractive = 0;
         }
     }
+	
+	config = fopen(".config.th","r");
+	if(config!=NULL)
+		execCmds(tesh_build_program("./.config.th > /dev/null"));
 }
 
 char * getEntry(char *promt) {

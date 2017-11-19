@@ -4,7 +4,7 @@ LDFLAGS=-ldl -pthread
 BIN_DIR=./bin
 OBJ_DIR=$(BIN_DIR)/obj
 EXEC=tesh
-OBJ=$(addprefix $(OBJ_DIR)/, main.o tesh.o)
+OBJ=$(addprefix $(OBJ_DIR)/, main.o tesh.o alias.o)
 
 all: make_dir $(EXEC)
 
