@@ -726,7 +726,7 @@ int handlePipe(Program *prg) {
 }
 
 int handleCdt(Program *prg, int d) {
-    int es1;
+    int es1, res;
     Command *cmd = prg->root->next;
 
     prg->root->link = CMD_LINK_NONE;
@@ -736,10 +736,36 @@ int handleCdt(Program *prg, int d) {
     free_cmd(&prg->root);
     prg->root = cmd;
 
+	res = d==-1;
+	
     if (!d || (d > 0 && es1) || (d < 0 && !es1))
-        return execCmds(prg);
-
-    return 0;
+        res = execCmd(prg->root, NULL);
+		
+	if(prg->root->stdin!=NULL){
+		free(prg->root->stdin);
+		prg->root->stdin=NULL;
+	}
+	if(prg->root->stdout!=NULL){
+		free(prg->root->stdout);
+		prg->root->stdout=NULL;
+	}
+	if(prg->root->stderr!=NULL){
+		free(prg->root->stderr);
+		prg->root->stderr=NULL;
+	}
+	
+	if(strcmp(prg->root->args[0],"")==0)
+		return 0;
+	
+	prg->root->args[1] = NULL;
+	
+	free(prg->root->args[0]);
+	
+	prg->root->args[0] = malloc(10*sizeof(char));
+	
+	sprintf(prg->root->args[0],"%s", (!res) ? "true" : "false" );
+	
+    return execCmds(prg);
 }
 
 void * endBackgroundCallback(void *arg) {
