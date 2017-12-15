@@ -145,7 +145,7 @@ int tesh(int argc, char **argv) {
     int         quit;
 
     quit = 0;
-    cd(getenv("PWD"));
+    cd(getenv("HOME"));
 
     loadTeshContext(&execContext, argc, argv);
 
