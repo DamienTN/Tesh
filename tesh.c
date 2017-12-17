@@ -86,33 +86,6 @@ int isValideChar(int c)
     return isgraph(c) || c == ' ';
 }
 
-int strrpl(char *str, char* s1, char *s2) {
-    int i;
-    for (i = 0; i < strlen(str); i++) {
-        if (str[i] == s1[0]) {
-            int j, cnt = 1;
-            for (j = 0; j < strlen(s1) && i < strlen(str) && cnt; j++) {
-                if (str[i] != s1[j])
-                    cnt = 0;
-                i++;
-            }
-            if (cnt) {
-
-                assert(strlen(s1) >= strlen(s2));
-
-                for (j = 0; j < strlen(s2); j++)
-                    str[i - strlen(s1) + j] = s2[j];
-                for (; j + i - strlen(s2) + 1 < strlen(str); j++)
-                    str[i - strlen(s1) + j] = str[i + j - strlen(s2) + 1];
-                str[i - strlen(s1) + j] = '\0';
-
-            } else
-                i--;
-        }
-    }
-    return 0;
-}
-
 int isquote(int c) {
     return (
             c == '\'' ||
@@ -145,7 +118,6 @@ int tesh(int argc, char **argv) {
     int         quit;
 
     quit = 0;
-    cd(getenv("HOME"));
 
     loadTeshContext(&execContext, argc, argv);
 
@@ -194,7 +166,6 @@ char* tesh_readline() {
     size_t  line_length;
 
 	promt=getPromt();
-    strrpl(promt,getenv("HOME"),"~/");
 
     line = (*execContext.getCmd)(promt);
 	
