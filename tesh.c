@@ -757,7 +757,7 @@ void * endBackgroundCallback(void *arg) {
     } else
         code = -1;
 
-    printf("[%d->%d]", pid, code);
+    printf("[%d->%d]\n", pid, code);
 
     free_cmd(&cmd);
 
